@@ -22,8 +22,9 @@ def distance(spoken_text):
     for word in words:
         if word in wtn:
             return wtn[word]
+    return None
 
-def Start_End(drone,text):
+def voice_commands(drone,text):
     text = text.lower()
     if "take off" in text:
         print("Taking off")
@@ -33,48 +34,46 @@ def Start_End(drone,text):
         print("Landing")
         drone.land()
 
-def voice_commands(drone,text):
-    text = text.lower()
+    dist = distance(text) or 30
     if "forward" in text:
-        dist = distance(text) or 30
         print(f"Moving forward {dist} cm")
         drone.move_forward(dist)
 
     elif "back" in text or "backward" in text:
-        dist = distance(text) or 30
         print(f"Moving backward {dist} cm")
         drone.move_backward(dist)
     elif "up" in text or "climb" in text:
-        dist = distance(text) or 30
         print(f"Moving up {dist} cm")
         drone.move_up(dist)
     elif "down" in text or "descend" in text:
-        dist = distance(text) or 30
         print(f"Moving down {dist} cm")
         drone.move_down(dist)
     elif "left" in text:
-        dist = distance(text) or 30
         print(f"Moving left {dist} cm")
         drone.move_left(dist)
     elif "right" in text:
-        dist = distance(text) or 30
         print(f"Moving right {dist} cm")
         drone.move_right(dist)
     else:
         print("Command not recognized.")
 
 mic = pyaudio.PyAudio()
-stream = mic.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8192)
+stream = mic.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=4096)
 
 while True:
-    data = stream.read(4096)
-    if recognizer.AcceptWaveform(data):
-        result = json.loads(recognizer.Result())
-        spoken_text = (result.get("text", ""))
-        print(spoken_text)
-        if spoken_text:
-            Start_End(drone, spoken_text)
-            voice_commands(drone, spoken_text)
-    
-    
+    try:
+        data = stream.read(4096)
+        if recognizer.AcceptWaveform(data):
+            result = json.loads(recognizer.Result())
+            spoken_text = (result.get("text", ""))
+            print(spoken_text)
+            if spoken_text:
+                voice_commands(drone, spoken_text)
+    except KeyboardInterrupt:
+        print("\nStopping...")
+        drone.land()
+        break
+
+
+
 
