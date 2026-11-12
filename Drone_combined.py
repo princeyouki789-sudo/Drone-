@@ -52,6 +52,7 @@ def voice(drone):
     
 #################################voice command  ################################
 def voice_commands(drone,text):
+ try : 
    global tracking_mode
    text = text.lower()
    dist = distance(text) 
@@ -139,7 +140,9 @@ def voice_commands(drone,text):
    #      else:
    #              print("###Command not recognized.")
    # time.sleep(0.05)
-       
+ except  djitellopy.tello.TelloException:
+       pass 
+        
 
 def distance(spoken_text):
 # word to number Dictionary
@@ -288,6 +291,5 @@ def main():
 if __name__=="__main__":
  main()
    
-
 
 
