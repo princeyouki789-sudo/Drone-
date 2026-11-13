@@ -8,19 +8,23 @@ import pyaudiowpatch
 import json
 import sys
 from vosk import Model, KaldiRecognizer
-
-
 ############################################## Variables#######################################e####################################
 #####DRONE Variables######
+
 #color detection
 lower_value=np.array([85,80,50])
 upper_value=np.array([125,255,255])
-#Variables set up
+
+# color tracking ariables set up
 stream_ready=threading.Event()
 keep_running=True
 emergency_stop=True
 target_data=(0,0,0)
 tracking_mode= False
+
+# drone_voice command set up 
+cmd_end_time =0
+cmd_speeds=[0,0,0,0]
 
 ####### Voice Model Variables####
 model = Model(r"C:\Users\princ\Documents\Project\computerscience\PYTHON\Model")
@@ -33,12 +37,12 @@ allowed_commands = [
     "right",
     "up",
     "down",
-    "rotate clockwise",
+    "turn right",
     "rotate counterclockwise",
     "flip back" ,
     "stop",
     "follow",
-     "twenty", "thirty", "forty", "fifty", "sixty", "eighty", "one hundred",
+    'follow off',
     "centimeters",
         "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
     "one hundred", "one hundred and ten", "one hundred and twenty", "one hundred and thirty",
@@ -60,10 +64,6 @@ allowed_commands = [
 recognizer = KaldiRecognizer(model, 16000, json.dumps(allowed_commands))
 #################################################################################################################
 #####################voice function #############################################
-
-
-
-
 def voice(drone):
  stream_ready.wait()
  mic = pyaudiowpatch.PyAudio()
@@ -80,46 +80,39 @@ def voice(drone):
                 voice_commands(drone, spoken_text)
     except OSError:
        pass 
-    
-    
 #################################voice command  ################################
 def voice_commands(drone,text):
- stream_ready.wait()
- while True:
+  stream_ready.wait()
   global tracking_mode
-  dist = distance(text) or 30
+  global cmd_speed
+  dist = distance(text) or 60
   duration=dist/40
+  cmd_end_time = time.time()+ duration 
   text = text.lower()
-  cmd_end_time = 0
-  yaw_speed=0
-  vertical_speed=0
-  fwd_speed=0
-  horizontal_speed=0
   try:       
     if "take off" in text:
         drone.takeoff()
     elif "land" in text:
         drone.land()
-
     elif "forward" in text:
-        fwd_speed=+40
+        cmd_speed=[0,40,0,0]
     elif  "backward" in text:
-        print(f"Moving backward {dist} cm")
-        fwd_speed-=40
+         cmd_speed=[0,-40,0,0]
     elif "up" in text :
-        vertical_speed+=40
+        cmd_speed=[0,0,40,0]
     elif "down" in text :
-        vertical_speed-=40
-    elif "left" in text:
-         horizontal_speed-=40
-    elif "right" in text:
-        horizontal_speed+=40
-    elif "rotate clockwise" in  text:
+        cmd_speed=[0,0,-40,0]
+    elif "turn right" in  text:
         yaw_speed=40
-    elif "rotate counterclockwise" in  text:
+    elif "turn left" in  text:
         yaw_speed=-40
-    elif "flip forward" in text:
-        drone.flip_forward()
+    elif "left" in text:
+        cmd_speed=[-40,0,0,0]
+    elif "right" in text:
+         cmd_speed=[40,0,0,0]
+
+   # elif "flip forward" in text:
+   #     drone.flip_forward()
     # elif "flip back" in text:
     #     drone.flip_back()
     #     print("Flipping back")
@@ -133,13 +126,14 @@ def voice_commands(drone,text):
         tracking_mode=False
     elif "follow" in text:
        tracking_mode=True
-       break
     elif"stop" in  text:
            drone.send_rc_control(0,0,0,0)
            print("stopping drone")
     else:
         print("Command not recognized.")
     drone.send_rc_control(horizontal_speed, fwd_speed, vertical_speed,yaw_speed)
+    if  time.time() >=cmd_end_time :
+        drone.send_rc_control(0,0,0,0)
     print(horizontal_speed, fwd_speed, vertical_speed,yaw_speed)
     time.sleep(0.04)
   #################### no distance provided##########################
@@ -163,7 +157,7 @@ def voice_commands(drone,text):
    #              drone.send_rc_control(20,0,0,0)
    #      elif "rotate clockwise" in text or "turn right" in text:
    #             drone.send_rc_control(0,0,0,20)
-   #             print("Rotating clockwise 90 degrees")
+   #             print("Rotating clockwise 90 degreess")
    #      elif "rotate counterclockwise" in text or "turn left" in text:
    #             drone.send_rc_control(0,0,0,-20)
    #             print("Rotating counterclockwise 90 degrees")
@@ -174,8 +168,19 @@ def voice_commands(drone,text):
    # time.sleep(0.05)
   except  djitellopy.tello.TelloException:
         pass 
-        
 
+
+def drone_flight():
+    global tracking_mode 
+    global cmd_speed
+    global cmd_end_time
+    while keep_running:
+      if not tracking_mode:
+         drone.send_rc_control(cmd_speed)
+         if time.time()>= cmd_end_time:  
+             drone.send_rc_control(0,0,0,0)
+
+        
 def distance(spoken_text):
 # word to number Dictionary
     wtn = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "one hundred": 100,
@@ -239,7 +244,6 @@ def video_stream (drone):
      sys.exit() 
  drone.streamoff() 
  cv2.destroyAllWindows() 
- 
 ############################ color tracking function##############################
 def drone_color_tracking(drone):
   global keep_running
@@ -273,7 +277,6 @@ def drone_color_tracking(drone):
      time.sleep(0.04)
    else:
       break 
-
 #get the drone Status data s
 def get_drone_status(drone):
  battery=drone.get_battery()
