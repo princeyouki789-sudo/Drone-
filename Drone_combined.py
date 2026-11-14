@@ -24,7 +24,7 @@ tracking_mode= False
 
 # drone_voice command set up 
 cmd_end_time =0
-cmd_speeds=[0,0,0,0]
+cmd_speed=[0,0,0,0]
 
 ####### Voice Model Variables####
 model = Model(r"C:\Users\princ\Documents\Project\computerscience\PYTHON\Model")
@@ -33,18 +33,18 @@ allowed_commands = [
     "land",
     "forward",
     "backward",
-    "left",
-    "right",
-    "up",
-    "down",
+    " go left",
+    "go right",
+    "go up",
+    "go down",
     "turn right",
-    "rotate counterclockwise",
+    "turn left",
     "flip back" ,
     "stop",
     "follow",
-    'follow off',
+    'unfollow',
     "centimeters",
-        "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+    "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
     "one hundred", "one hundred and ten", "one hundred and twenty", "one hundred and thirty",
     "one hundred and forty", "one hundred and fifty", "one hundred and sixty",
     "one hundred and seventy", "one hundred and eighty", "one hundred and ninety",
@@ -69,7 +69,7 @@ def voice(drone):
  mic = pyaudiowpatch.PyAudio()
  stream = mic.open(format=pyaudiowpatch.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=4096)
  print("#"*100,"\n AUDIO RECORD STARTING \n","#"*100)
- while True:
+ while keep_running:
     try:
         data = stream.read(4096, exception_on_overflow=False)
         if recognizer.AcceptWaveform(data):
@@ -80,14 +80,19 @@ def voice(drone):
                 voice_commands(drone, spoken_text)
     except OSError:
        pass 
+ stream.stop_stream()
+ stream.close()
+ mic.terminate()
+
 #################################voice command  ################################
 def voice_commands(drone,text):
   stream_ready.wait()
   global tracking_mode
   global cmd_speed
-  dist = distance(text) or 60
+  global cmd_end_time
+  dist = distance(text) 
   duration=dist/40
-  cmd_end_time = time.time()+ duration 
+  rot_duration=dist/22
   text = text.lower()
   try:       
     if "take off" in text:
@@ -96,91 +101,62 @@ def voice_commands(drone,text):
         drone.land()
     elif "forward" in text:
         cmd_speed=[0,40,0,0]
+        cmd_end_time = time.time() + duration
     elif  "backward" in text:
          cmd_speed=[0,-40,0,0]
-    elif "up" in text :
+         cmd_end_time = time.time() + duration
+    elif "go up" in text :
         cmd_speed=[0,0,40,0]
-    elif "down" in text :
+        cmd_end_time = time.time() + duration
+    elif "go down" in text :
         cmd_speed=[0,0,-40,0]
+        cmd_end_time = time.time() + duration
     elif "turn right" in  text:
-        yaw_speed=40
+        cmd_speed=[0,0,0,40]
+        cmd_end_time = time.time() + rot_duration
     elif "turn left" in  text:
-        yaw_speed=-40
-    elif "left" in text:
+        cmd_speed=[0,0,0,-40]
+        cmd_end_time = time.time() + rot_duration
+    elif "go left" in text:
         cmd_speed=[-40,0,0,0]
-    elif "right" in text:
+        cmd_end_time = time.time() + duration
+    elif "go right" in text:
          cmd_speed=[40,0,0,0]
-
-   # elif "flip forward" in text:
-   #     drone.flip_forward()
-    # elif "flip back" in text:
-    #     drone.flip_back()
-    #     print("Flipping back")
-    # elif "flip left" in text:
-    #     drone.flip_left()
-    #     print("Flipping left")
-    # elif "flip right" in text:
-    #     drone.flip_right()
-    #     print("Flipping right")
-    elif "follow off" in text:
+         cmd_end_time = time.time() + duration
+    elif "unfollow" in text:
         tracking_mode=False
+        cmd_speed=(0,0,0,0)
+        cmd_end_time=0
     elif "follow" in text:
        tracking_mode=True
     elif"stop" in  text:
            drone.send_rc_control(0,0,0,0)
            print("stopping drone")
+           cmd_speed=(0,0,0,0)
+           cmd_end_time=0
     else:
         print("Command not recognized.")
-    drone.send_rc_control(horizontal_speed, fwd_speed, vertical_speed,yaw_speed)
-    if  time.time() >=cmd_end_time :
-        drone.send_rc_control(0,0,0,0)
-    print(horizontal_speed, fwd_speed, vertical_speed,yaw_speed)
-    time.sleep(0.04)
-  #################### no distance provided##########################
-   # else:
-   #  while True:
-   #      if "forward" in text:
-   #         drone.send_rc_control(0,20,0,0)
-   #         print("moving forward")  
-   #      elif "back" in text or "backward" in text:
-   #             print("Moving backward")
-   #             drone.send_rc_control(0,-20,0,0)
-   #      elif "up" in text or "climb" in text: 
-   #             print("Going up")
-   #             drone.send_rc_control(0,0,20,0)
-   #      elif "down" in text or "descend" in text:
-   #            print('going down')
-   #            drone.send_rc_control(0,0,-20,0)
-   #      elif "left" in text:
-   #             drone.send_rc_control(-20,0,0,0)
-   #      elif "right" in text:
-   #              drone.send_rc_control(20,0,0,0)
-   #      elif "rotate clockwise" in text or "turn right" in text:
-   #             drone.send_rc_control(0,0,0,20)
-   #             print("Rotating clockwise 90 degreess")
-   #      elif "rotate counterclockwise" in text or "turn left" in text:
-   #             drone.send_rc_control(0,0,0,-20)
-   #             print("Rotating counterclockwise 90 degrees")
-   #      elif"stop" in text or" hold" in text or "hover" in text:
-   #         drone.send_rc_control(0,0,0,0)
-   #      else:
-   #              print("###Command not recognized.")
-   # time.sleep(0.05)
+
+
   except  djitellopy.tello.TelloException:
         pass 
 
-
-def drone_flight():
+################## drone flight function 
+def drone_flight(drone):
+    stream_ready.wait()
     global tracking_mode 
     global cmd_speed
     global cmd_end_time
     while keep_running:
       if not tracking_mode:
-         drone.send_rc_control(cmd_speed)
-         if time.time()>= cmd_end_time:  
+         drone.send_rc_control(*cmd_speed)
+         if time.time()>= cmd_end_time and cmd_end_time !=0:  
              drone.send_rc_control(0,0,0,0)
+             cmd_speed=(0,0,0,0)
+             cmd_end_time=0
+      time.sleep(0.04)
 
-        
+######### distance finder function         
 def distance(spoken_text):
 # word to number Dictionary
     wtn = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "one hundred": 100,
@@ -199,9 +175,11 @@ def distance(spoken_text):
     for word in wtn1:
        if word in spoken_text.lower():
         return wtn[word]
-    return 30 
+    return 60
+
 ###### Video stream function ######
 def video_stream (drone):
+ global keep_running
  width= 540
  height=340 
  print("#"*100,"\nVIDEO STREAM  STARTING \n","#"*100)
@@ -232,8 +210,20 @@ def video_stream (drone):
          x,y,w,h=cv2.boundingRect(max_object) #get the rectangular coordinates of the shape 
          cx=x+w//2
          cy=y+h//2
-         cv2.rectangle(my_frame,(x,y),(x+w,y+h),(0,0,255),3) #draws the rectangle on my_frame 
-         cv2.circle(my_frame,(cx,cy,),5,(0,255,0),-1)
+         if tracking_mode:
+          cv2.rectangle(my_frame,(x,y),(x+w,y+h),(0,0,255),3) #draws the rectangle on my_frame 
+          cv2.circle(my_frame,(cx,cy,),5,(0,255,0),-1)
+          ###############aesthetic added 
+   if tracking_mode:
+    cv2.rectangle(my_frame,(2,2),(width-2,height-2),(0,0,255),3)
+    cv2.rectangle(my_frame,(220,120),(320,220),(255,255,0),1) # Cyan center deadzone box
+    cv2.line(my_frame,(260,170),(280,170),(255,255,0),1) # Horizontal crosshair
+    cv2.line(my_frame,(270,160),(270,180),(255,255,0),1) # Vertical crosshair
+    cv2.rectangle(my_frame,(355, 15),(530, 45),(0, 0, 180),-1)
+    cv2.putText(my_frame," TRACKING MODE ON",(362, 35),cv2.FONT_HERSHEY_SIMPLEX,0.45,(255, 255, 255),2,cv2.LINE_AA)
+   else:
+    cv2.rectangle(my_frame,(355, 15),(530, 45),(40, 40, 40),-1)
+    cv2.putText(my_frame," VOICE MODE",(362, 35),cv2.FONT_HERSHEY_SIMPLEX,0.45,(255, 255, 255),2,cv2.LINE_AA) 
    target_data=(cx,cy,area)
    cv2.imshow("Masqued_video",mask)
    cv2.imshow("Drone_camera",my_frame)
@@ -241,11 +231,14 @@ def video_stream (drone):
    if wait_key==ord('q'):
       tracking_mode=False
    elif wait_key==ord('e'):
-     sys.exit() 
+      keep_running=False
+      drone.send_rc_control(0,0,0,0) 
  drone.streamoff() 
  cv2.destroyAllWindows() 
+
 ############################ color tracking function##############################
 def drone_color_tracking(drone):
+  stream_ready.wait()
   global keep_running
   while keep_running:
    center_x=270
@@ -257,80 +250,49 @@ def drone_color_tracking(drone):
    if tracking_mode:
      global target_data
      cx,cy,area=target_data
-     if area >500:
+     if area >400:
      #rotational speed 
       if cx < (center_x-50):
-       yaw_speed-=40
+       yaw_speed-=49
       elif cx>(center_x+50):
-       yaw_speed+=40
+       yaw_speed+=49
      #vertical speed 
       if  cy<(center_y-50):
-       vertical_speed+=40
+       vertical_speed+=30
       elif  cy>(center_y+50):
-       vertical_speed-=40
+       vertical_speed-=30
       if   area <8000:
-       fwd_speed=+40
+       fwd_speed=25
       elif area >35000:
-       fwd_speed-=40
+       fwd_speed-=25
      drone.send_rc_control(horizontal_speed, fwd_speed, vertical_speed,yaw_speed)
      print(horizontal_speed, fwd_speed, vertical_speed,yaw_speed)
-     time.sleep(0.04)
-   else:
-      break 
+   time.sleep(0.04)
+   
+   
 #get the drone Status data s
 def get_drone_status(drone):
  battery=drone.get_battery()
  avgtemp=drone.get_temperature()
  return battery,avgtemp
 
-
-# #drone flight execution  function 
-# def drone_flight(drone):
- 
-#  stream_ready.wait() #wait for the stream video to start 
-#  print("Starting Drone flight")
-#  time.sleep(8)
-#  drone.takeoff()
-#  drone.move_forward(20)
-#  time.sleep(2)
-#  drone.rotate_clockwise(90)
-#  time.sleep(2)
-#  drone.move_forward(20)
-#  time.sleep(2)
-#  drone.rotate_clockwise(90)
-#  time.sleep(2)
-#  drone.move_forward(20)
-#  time.sleep(2)
-#  drone.land()
-#  time.sleep(8)
-#  global keep_running
-#  keep_running=False
- 
-
-
 #main function 
 def main():
- try:
-  my_drone=Tello()
-  my_drone.connect()
-  print("#"*100,"\nDrone Connected \n","#"*100)
-  my_drone.streamon()
-  stream_thread=threading.Thread(target=video_stream, args=(my_drone,))
-  stream_thread.start()
-  tracking_thread=threading.Thread(target=drone_color_tracking,args=(my_drone,))
-  tracking_thread.start()
-  voice_thread=threading.Thread(target=voice,args=(my_drone,))
-  voice_thread.start()
-  command_thread=threading.Thread(target=voice_commands,args=(my_drone,))
-  command_thread.start()
-
-#  flight_thread.join() # waith Until the done_flight functions is executed before excecuting the follwing commands 
-# print("Drone Flight Terminated.....Rebotting Drone")
- #my_drone.reboot()
- except djitellopy.tello.TelloException:
+  try:
+   my_drone=Tello()
+   my_drone.connect()
+   print("#"*100,"\nDrone Connected \n","#"*100)
+   my_drone.streamon()
+   stream_thread=threading.Thread(target=video_stream, args=(my_drone,))
+   stream_thread.start()
+   tracking_thread=threading.Thread(target=drone_color_tracking,args=(my_drone,))
+   tracking_thread.start()
+   voice_thread=threading.Thread(target=voice,args=(my_drone,))
+   voice_thread.start()
+   flight_thread=threading.Thread(target=drone_flight,args=(my_drone,))
+   flight_thread.start()
+  except djitellopy.tello.TelloException:
    print("#"*100,"\n CONNECTION ERROR.. CHECK DRONE CONNECTION  \n","#"*100)
 if __name__=="__main__":
  main()
    
-
-
