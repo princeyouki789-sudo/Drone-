@@ -18,3 +18,5 @@ Project Experience:
 Our creative director Chelsea came up with the great idea of have our club issued drone have the ability to be controlled using voice commands. Since our team is made up of people with little to no coding experience, we decided the project was the right amount of difficulty for us. There wasn't many major difficulties we had to face. I was mostly code breaks which were just errors on out part and once we wrote the code right, everything just sort of worked.
 
 Final Presentation Link: https://canva.link/4inbfmzo6ego0pf
+
+ss
