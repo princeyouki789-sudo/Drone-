@@ -5,11 +5,6 @@
 Creative Director: Chelsea Marin
 Head Coder: Price Youki
 Co-Coder: Tibo Mba
-
-
-
-
-
   
 Project Description:
 Our project Is a voice controlled drone. It has many voice commands we implemented to give fine controls to the drone. After accomplishing this we felt our project wasn't great enough so we also added facial recognition to the drones camera feed. The biggest and most important thing we learned from this project is how to teach ourself on new coding libraries. Studying the drone's, and voice model's library was a huge experience boost on how to done for different devices. It was very helpful.
@@ -19,4 +14,3 @@ Our creative director Chelsea came up with the great idea of have our club issue
 
 Final Presentation Link: https://canva.link/4inbfmzo6ego0pf
 
-ss
